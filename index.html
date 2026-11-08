@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>交替性転向ローバー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box}
+html{color-scheme:light}
+body{margin:0}
+/* Layout: lab-bench page — field simulation with an instrument panel beside it, then a T-maze trial counter, then short notes. */
+:root{
+  --bg:#eef1f3; --panel:#ffffff; --ink:#18222b; --muted:#5b6872; --line:#d3dadf;
+  --wall:#3a4650; --floor:#f7f9fa; --grid:#e3e8eb;
+  --a:#d9761c; --a-soft:rgba(217,118,28,.18);
+  --b:#4f6f9a; --b-soft:rgba(79,111,154,.18);
+  --good:#2f8a5b;
+  --f-display:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",sans-serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12171b; --panel:#1a2127; --ink:#e4e9ec; --muted:#93a0a9; --line:#2c363e;
+  --wall:#8696a2; --floor:#161c21; --grid:#222b31;
+  --a:#f0953f; --a-soft:rgba(240,149,63,.22);
+  --b:#86a6d4; --b-soft:rgba(134,166,212,.22);
+  --good:#5cc08b; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#12171b; --panel:#1a2127; --ink:#e4e9ec; --muted:#93a0a9; --line:#2c363e;
+  --wall:#8696a2; --floor:#161c21; --grid:#222b31;
+  --a:#f0953f; --a-soft:rgba(240,149,63,.22);
+  --b:#86a6d4; --b-soft:rgba(134,166,212,.22);
+  --good:#5cc08b; color-scheme:dark;}
+
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.7;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 56px}
+.wrap{max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:40px}
+h1,h2{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.3}
+h1{font-size:clamp(26px,4.2vw,40px);font-weight:900;letter-spacing:.01em}
+h2{font-size:clamp(19px,2.4vw,24px);font-weight:700}
+p{margin:0}
+.lede{max-width:44em;color:var(--muted)}
+.eyebrow{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--a)}
+header{display:flex;flex-direction:column;gap:12px}
+section{display:flex;flex-direction:column;gap:16px}
+.bench{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start}
+@media (max-width:860px){.bench{grid-template-columns:minmax(0,1fr)}}
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;min-width:0}
+canvas{display:block;width:100%;height:auto;border-radius:6px}
+.panel{display:flex;flex-direction:column;gap:18px;min-width:0}
+.group{display:flex;flex-direction:column;gap:10px}
+.label{font-family:var(--f-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+button{font:inherit;font-size:14px;font-weight:500;color:var(--ink);background:var(--panel);border:1px solid var(--line);
+  border-radius:7px;padding:7px 13px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--a);outline-offset:2px}
+.slider{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center}
+.slider label{font-size:14px}
+.slider output{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabular-nums}
+.slider input{grid-column:1/-1;width:100%;accent-color:var(--a)}
+.slider small{grid-column:1/-1;color:var(--muted);font-size:12.5px;line-height:1.5}
+.rovers{display:flex;flex-direction:column;gap:10px}
+.rv{display:grid;grid-template-columns:14px 1fr;gap:4px 10px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+.dot{width:12px;height:12px;border-radius:3px;margin-top:6px}
+.rv .name{font-weight:700;font-size:14px}
+.rv .meta{grid-column:2;display:grid;grid-template-columns:auto auto;justify-content:space-between;gap:0 12px;font-size:13px;color:var(--muted)}
+.rv .meta b{font-family:var(--f-mono);font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;text-align:right}
+.cmp{display:flex;flex-direction:column;gap:8px}
+.bar{display:grid;grid-template-columns:62px 1fr 60px;gap:8px;align-items:center;font-size:13px}
+.bar .track{height:10px;background:var(--grid);border-radius:5px;overflow:hidden}
+.bar .fill{height:100%;border-radius:5px;transition:width .4s}
+.bar .v{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right}
+.note{font-size:12.5px;color:var(--muted);line-height:1.55}
+.tm{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:760px){.tm{grid-template-columns:minmax(0,1fr)}}
+.tally{display:flex;flex-direction:column;gap:12px}
+.bignum{font-family:var(--f-mono);font-size:34px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px}
+.notes div{display:flex;flex-direction:column;gap:6px;min-width:0}
+.notes h3{margin:0;font-size:15.5px;font-family:var(--f-display)}
+.notes p{color:var(--muted);font-size:14px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12.5px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<header>
+  <span class="eyebrow">Turn alternation · 交替性転向反応</span>
+  <h1>交替性転向ローバー</h1>
+  <p class="lede">ダンゴムシは障害物に当たって右に曲がると、次は左に曲がりやすい。この「右・左・右…」と交互に曲がる性質を、小さな車輪ロボットに持たせて動かします。オレンジのローバーは前回と逆向きに曲がり、青のローバーは毎回コイン投げで曲がる向きを決めます。どちらも下の入口から出発し、上端に出たら脱出です。</p>
+</header>
+
+<section>
+  <div class="bench">
+    <div class="stage">
+      <canvas id="field" width="780" height="660" aria-label="障害物のある地形を2台のローバーが進むシミュレーション"></canvas>
+      <div class="legend" style="margin-top:10px">
+        <span><i style="background:var(--a)"></i>交替ローバー</span>
+        <span><i style="background:var(--b)"></i>ランダムローバー</span>
+        <span><i style="background:var(--wall)"></i>障害物</span>
+        <span>▲ 曲がり角の向き（L / R）を軌跡に表示</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="group">
+        <span class="label">操作</span>
+        <div class="btns">
+          <button id="play" class="primary">一時停止</button>
+          <button id="newmap">新しい地形</button>
+          <button id="clear">統計をリセット</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="slider">
+          <label for="pAlt">逆向きに曲がる確率</label><output id="pAltV">90%</output>
+          <input id="pAlt" type="range" min="50" max="100" step="1" value="90">
+          <small>オレンジのローバーだけに効きます。50% にするとランダムと同じになります。</small>
+        </div>
+        <div class="slider">
+          <label for="lam">記憶が薄れる距離</label><output id="lamV">8 マス</output>
+          <input id="lam" type="range" min="1" max="30" step="1" value="8">
+          <small>前の曲がり角から遠いほど、交替の傾向は弱まります（実際のダンゴムシでも同じ傾向が知られています）。</small>
+        </div>
+        <div class="slider">
+          <label for="spd">速さ</label><output id="spdV">8 マス/秒</output>
+          <input id="spd" type="range" min="1" max="60" step="1" value="8">
+        </div>
+      </div>
+
+      <div class="group">
+        <span class="label">いまの試行</span>
+        <div class="rovers">
+          <div class="rv"><span class="dot" style="background:var(--a)"></span><span class="name">交替ローバー</span>
+            <div class="meta"><span>歩数</span><b id="aSteps">0</b><span>前進した高さ</span><b id="aUp">0</b><span>交替率</span><b id="aAlt">–</b></div></div>
+          <div class="rv"><span class="dot" style="background:var(--b)"></span><span class="name">ランダムローバー</span>
+            <div class="meta"><span>歩数</span><b id="bSteps">0</b><span>前進した高さ</span><b id="bUp">0</b><span>交替率</span><b id="bAlt">–</b></div></div>
+        </div>
+      </div>
+
+      <div class="group">
+        <span class="label">脱出までの平均歩数（<span id="runs">0</span> 地形）</span>
+        <div class="cmp">
+          <div class="bar"><span>交替</span><span class="track"><span class="fill" id="aBar" style="background:var(--a);width:0"></span></span><span class="v" id="aAvg">–</span></div>
+          <div class="bar"><span>ランダム</span><span class="track"><span class="fill" id="bBar" style="background:var(--b);width:0"></span></span><span class="v" id="bAvg">–</span></div>
+        </div>
+        <p class="note">歩数が少ないほど早く抜け出せたことを示します。1500 歩で抜けられなければ打ち切り、1500 歩として数えます。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>T字迷路での実験</h2>
+  <p class="lede">研究でよく使われる装置です。まず通路で強制的に一方へ曲がらせ（強制転向）、その先の T 字路でどちらを選ぶかを記録します。強制転向と逆を選べば「交替」です。二つの曲がり角の間の距離を伸ばすと、交替率が下がっていく様子を確かめられます。</p>
+  <div class="tm">
+    <div class="stage"><canvas id="tmaze" width="560" height="380" aria-label="T字迷路を進むローバー"></canvas></div>
+    <div class="panel">
+      <div class="slider">
+        <label for="dist">曲がり角の間の距離</label><output id="distV">2 マス</output>
+        <input id="dist" type="range" min="1" max="24" step="1" value="2">
+        <small>上の「逆向きに曲がる確率」と「記憶が薄れる距離」もこの実験に使われます。</small>
+      </div>
+      <div class="btns">
+        <button id="tmRun" class="primary">一時停止</button>
+        <button id="tm100">100 回まとめて</button>
+        <button id="tmReset">記録をリセット</button>
+      </div>
+      <div class="tally">
+        <div><span class="label">交替率</span><div class="bignum" id="tmRate">–</div></div>
+        <div class="cmp">
+          <div class="bar"><span>交替</span><span class="track"><span class="fill" id="tmAltBar" style="background:var(--a);width:0"></span></span><span class="v" id="tmAlt">0</span></div>
+          <div class="bar"><span>同じ向き</span><span class="track"><span class="fill" id="tmSameBar" style="background:var(--muted);width:0"></span></span><span class="v" id="tmSame">0</span></div>
+        </div>
+        <p class="note" id="tmExpect"></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>なぜ交互に曲がるのか</h2>
+  <div class="notes">
+    <div><h3>逃げる方向を保つ</h3><p>右と左を交互に繰り返すと、障害物をよけながらも最初の進行方向からあまりずれません。上の地形でオレンジのローバーが早く上へ抜けやすいのはこのためです。ランダムに曲がると、同じ向きに続けて曲がって引き返してしまうことがあります。</p></div>
+    <div><h3>左右の脚の偏り（BALM 仮説）</h3><p>曲がるとき、外側の脚は内側より多く動きます。次の分かれ道では、疲れていない側の脚がよく動くので、反対方向へ曲がりやすくなる、という説明です。このローバーでは「前回の向き」という記憶として単純化しています。</p></div>
+    <div><h3>距離とともに弱まる</h3><p>曲がり角の間が長くなると、脚の動きの偏りが均され、交替率は 50% に近づきます。ここでは 50% + (設定値 − 50%) × e<sup>−距離/記憶距離</sup> という式で表しています。</p></div>
+  </div>
+</section>
+</div>
+
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+let tok={};
+function readTokens(){const s=getComputedStyle(document.documentElement);
+  ['--a','--b','--a-soft','--b-soft','--wall','--floor','--grid','--ink','--muted','--line','--panel','--good'].forEach(k=>tok[k]=s.getPropertyValue(k).trim());}
+readTokens();
+if(window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',readTokens);
+new MutationObserver(readTokens).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+/* ---------- parameters ---------- */
+const P={alt:.9,lam:8,spd:8,dist:2};
+function bindSlider(id,fmt,set){const el=$(id),out=$(id+'V');const f=()=>{set(+el.value);out.textContent=fmt(+el.value);updateExpect();};el.addEventListener('input',f);f();}
+function pEff(p,d){return .5+(p-.5)*Math.exp(-d/P.lam);}
+
+/* ---------- field ---------- */
+const COLS=26,ROWS=22,MAXSTEPS=1500;
+const fc=$('field'),fx=fc.getContext('2d');
+const DR=[-1,0,1,0],DC=[0,1,0,-1];
+let grid,startC,rovers=[],stats={runs:0,a:[],b:[]},playing=!reduce,pauseT=0;
+
+function genMap(){
+  for(let tries=0;tries<200;tries++){
+    const g=Array.from({length:ROWS},()=>new Array(COLS).fill(0));
+    const n=Math.floor(COLS*ROWS*0.075);
+    for(let i=0;i<n;i++){
+      const horiz=Math.random()<.5,len=1+Math.floor(Math.random()*4);
+      const r=Math.floor(Math.random()*(ROWS-3)),c=Math.floor(Math.random()*COLS);
+      for(let k=0;k<len;k++){const rr=horiz?r:r+k,cc=horiz?c+k:c;if(rr<ROWS&&cc<COLS)g[rr][cc]=1;}
+    }
+    startC=Math.floor(COLS/2);
+    for(let r=ROWS-3;r<ROWS;r++)g[r][startC]=0;
+    // make sure the first wall is met fairly soon so turning starts early
+    if(reach(g)){grid=g;return;}
+  }
+}
+function reach(g){const seen=new Set(),q=[[ROWS-1,startC]];seen.add((ROWS-1)*COLS+startC);
+  while(q.length){const [r,c]=q.shift();if(r===0)return true;
+    for(let d=0;d<4;d++){const nr=r+DR[d],nc=c+DC[d];if(nr<0||nr>=ROWS||nc<0||nc>=COLS||g[nr][nc])continue;const k=nr*COLS+nc;if(!seen.has(k)){seen.add(k);q.push([nr,nc]);}}}
+  return false;}
+function open(r,c){if(r<0)return true; if(r>=ROWS||c<0||c>=COLS)return false;return !grid[r][c];}
+
+function makeRover(kind){return{kind,r:ROWS-1,c:startC,dir:0,ang:-Math.PI/2,last:0,since:0,steps:0,turns:0,alts:0,
+  minR:ROWS-1,done:false,escaped:false,trail:[[ROWS-1,startC]],marks:[],
+  fr:ROWS-1,fcx:startC,fa:-Math.PI/2,t:1};}
+function resetField(){genMap();rovers=[makeRover('a'),makeRover('b')];pauseT=0;}
+
+function stepRover(v){
+  if(v.done)return;
+  if(v.steps>=MAXSTEPS){v.done=true;return;}
+  v.fr=v.r;v.fcx=v.c;v.fa=v.ang;v.t=0;
+  let d=v.dir;
+  const fr=v.r+DR[d],fcc=v.c+DC[d];
+  if(open(fr,fcc)){ move(v,d); return; }
+  const L=(d+3)%4,R=(d+1)%4;
+  const oL=open(v.r+DR[L],v.c+DC[L]),oR=open(v.r+DR[R],v.c+DC[R]);
+  let turn=0;
+  if(oL&&oR){
+    const p=v.kind==='a'?pEff(P.alt,v.since):.5;
+    const pref=v.last? -v.last : (Math.random()<.5?-1:1);
+    turn=Math.random()<p?pref:-pref;
+  }else if(oL)turn=-1;else if(oR)turn=1;
+  if(turn===0){ // dead end: U-turn, memory kept
+    v.dir=(d+2)%4;v.ang+=Math.PI;v.steps++;return;
+  }
+  if(v.last){v.turns++;if(turn===-v.last)v.alts++;}
+  v.last=turn;v.since=0;
+  v.dir=(d+(turn>0?1:3))%4;v.ang+=turn*Math.PI/2;
+  v.marks.push([v.r,v.c,turn]);
+  move(v,v.dir);
+}
+function move(v,d){
+  v.r+=DR[d];v.c+=DC[d];v.steps++;v.since++;
+  v.trail.push([v.r,v.c]);if(v.trail.length>2500)v.trail.shift();
+  if(v.r<v.minR)v.minR=Math.max(v.r,0);
+  if(v.r<0){v.done=true;v.escaped=true;}
+}
+
+function cellSize(){return Math.min(fc.width/COLS,fc.height/(ROWS+2));}
+function drawField(){
+  const W=fc.width,H=fc.height,s=cellSize(),ox=(W-s*COLS)/2,oy=s;
+  fx.clearRect(0,0,W,H);
+  fx.fillStyle=tok['--floor'];fx.fillRect(0,0,W,H);
+  // exit band
+  fx.fillStyle=tok['--good'];fx.globalAlpha=.14;fx.fillRect(ox,0,s*COLS,oy);fx.globalAlpha=1;
+  fx.fillStyle=tok['--good'];fx.font=`600 ${Math.max(10,s*.42)}px "JetBrains Mono",monospace`;fx.textAlign='center';fx.textBaseline='middle';
+  fx.fillText('EXIT ↑',W/2,oy/2);
+  // grid
+  fx.strokeStyle=tok['--grid'];fx.lineWidth=1;fx.beginPath();
+  for(let c=0;c<=COLS;c++){fx.moveTo(ox+c*s,oy);fx.lineTo(ox+c*s,oy+ROWS*s);}
+  for(let r=0;r<=ROWS;r++){fx.moveTo(ox,oy+r*s);fx.lineTo(ox+COLS*s,oy+r*s);}
+  fx.stroke();
+  // walls
+  fx.fillStyle=tok['--wall'];
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(grid[r][c]){fx.beginPath();roundRect(fx,ox+c*s+1.5,oy+r*s+1.5,s-3,s-3,s*.18);fx.fill();}
+  fx.strokeStyle=tok['--wall'];fx.lineWidth=2;fx.strokeRect(ox,oy,COLS*s,ROWS*s);
+  // start
+  fx.fillStyle=tok['--muted'];fx.font=`600 ${Math.max(9,s*.36)}px "JetBrains Mono",monospace`;
+  fx.fillText('START',ox+(startC+.5)*s,oy+ROWS*s+s*.4);
+  // trails
+  rovers.forEach((v,i)=>{
+    const col=v.kind==='a'?tok['--a']:tok['--b'],off=(i?1:-1)*s*.12;
+    fx.strokeStyle=col;fx.globalAlpha=.55;fx.lineWidth=Math.max(2,s*.12);fx.lineJoin='round';fx.lineCap='round';
+    fx.beginPath();
+    v.trail.forEach(([r,c],k)=>{const x=ox+(c+.5)*s+off,y=oy+(r+.5)*s+off;k?fx.lineTo(x,y):fx.moveTo(x,y);});
+    if(!v.done){const p=pos(v,s,ox,oy);fx.lineTo(p.x+off,p.y+off);}
+    fx.stroke();fx.globalAlpha=1;
+    // turn marks
+    fx.font=`700 ${Math.max(8,s*.32)}px "JetBrains Mono",monospace`;
+    v.marks.slice(-40).forEach(([r,c,t])=>{
+      fx.fillStyle=col;fx.fillText(t>0?'R':'L',ox+(c+.5)*s+off*2.6,oy+(r+.5)*s+off*2.6);
+    });
+  });
+  rovers.forEach(v=>{if(!v.escaped||v.t<1)drawRover(fx,v,s,ox,oy);});
+}
+function pos(v,s,ox,oy){const t=ease(Math.min(v.t,1));
+  const r=v.fr+(v.r-v.fr)*t,c=v.fcx+(v.c-v.fcx)*t;
+  return{x:ox+(c+.5)*s,y:oy+(r+.5)*s,a:v.fa+(v.ang-v.fa)*Math.min(1,t*1.6)};}
+function ease(t){return t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;}
+function drawRover(g,v,s,ox,oy){
+  const p=pos(v,s,ox,oy),col=v.kind==='a'?tok['--a']:tok['--b'];
+  g.save();g.translate(p.x,p.y);g.rotate(p.a+Math.PI/2);
+  const w=s*.62,h=s*.74;
+  // wheels
+  g.fillStyle=tok['--ink'];
+  [[-w/2-s*.06,-h*.28],[w/2-s*.06+s*.0,-h*.28],[-w/2-s*.06,h*.12],[w/2-s*.06,h*.12]].forEach(([x,y])=>{g.beginPath();roundRect(g,x,y,s*.12,h*.3,s*.04);g.fill();});
+  // body
+  g.fillStyle=col;g.beginPath();roundRect(g,-w/2,-h/2,w,h,s*.16);g.fill();
+  // sensor
+  g.fillStyle=tok['--panel'];g.beginPath();g.arc(0,-h*.24,s*.1,0,Math.PI*2);g.fill();
+  // memory light: which side it turned last
+  if(v.last){g.fillStyle=tok['--panel'];g.beginPath();g.arc(v.last*w*.24,h*.18,s*.07,0,Math.PI*2);g.fill();}
+  g.restore();
+}
+function roundRect(g,x,y,w,h,r){r=Math.min(r,w/2,h/2);g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath();}
+
+function updateFieldUI(){
+  const [a,b]=rovers;
+  $('aSteps').textContent=a.steps;$('bSteps').textContent=b.steps;
+  $('aUp').textContent=(ROWS-1-Math.max(a.minR,0))+(a.escaped?' ✓':'');$('bUp').textContent=(ROWS-1-Math.max(b.minR,0))+(b.escaped?' ✓':'');
+  $('aAlt').textContent=a.turns?Math.round(a.alts/a.turns*100)+'%':'–';
+  $('bAlt').textContent=b.turns?Math.round(b.alts/b.turns*100)+'%':'–';
+}
+function updateStatsUI(){
+  $('runs').textContent=stats.runs;
+  const avg=x=>x.length?x.reduce((s,v)=>s+v,0)/x.length:0;
+  const A=avg(stats.a),B=avg(stats.b),M=Math.max(A,B,1);
+  $('aAvg').textContent=stats.runs?Math.round(A):'–';$('bAvg').textContent=stats.runs?Math.round(B):'–';
+  $('aBar').style.width=(A/M*100)+'%';$('bBar').style.width=(B/M*100)+'%';
+}
+
+/* ---------- T maze ---------- */
+const tc=$('tmaze'),tx=tc.getContext('2d');
+let tm={alt:0,same:0,running:!reduce,trial:null,wait:0};
+function tmGeom(){
+  const W=tc.width,H=tc.height,k=W/560,cw=34*k;
+  const maxLen=W/2-cw*2.2, len=cw*.8+(maxLen-cw*.8)*(P.dist-1)/23;
+  return{W,H,cw,len,k};
+}
+function newTrial(){
+  const forced=Math.random()<.5?-1:1; // -1 left, +1 right
+  const p=pEff(P.alt,P.dist);
+  const alt=Math.random()<p;
+  const choice=alt?-forced:forced;
+  return{forced,choice,alt,t:0};
+}
+function tmPath(tr){
+  const {W,H,cw,len}=tmGeom();
+  const x0=W/2 - tr.forced*len/2, y1=H*0.5; // forced junction
+  const xT=x0+tr.forced*len;               // T junction x
+  // heading after forced turn: right if forced=+1. At T: turning left (relative) => up, right => down
+  const yEnd=y1 + (tr.choice===-1?-1:1)*tr.forced*(H*0.36);
+  return [[x0,H-10],[x0,y1],[xT,y1],[xT,yEnd]];
+}
+function drawTmaze(){
+  const {W,H,cw,len,k}=tmGeom();
+  tx.clearRect(0,0,W,H);tx.fillStyle=tok['--floor'];tx.fillRect(0,0,W,H);
+  const tr=tm.trial||{forced:1,choice:-1,t:0};
+  const pts=tmPath(tr);
+  const [s0,j1,jT]=pts;
+  // corridors drawn as thick wall outline then floor
+  const segs=[[s0,j1],[j1,jT],[[jT[0],H*0.5-H*0.36],[jT[0],H*0.5+H*0.36]]];
+  tx.lineCap='square';
+  tx.strokeStyle=tok['--wall'];tx.lineWidth=cw+8;tx.beginPath();segs.forEach(([a,b])=>{tx.moveTo(a[0],a[1]);tx.lineTo(b[0],b[1]);});tx.stroke();
+  tx.strokeStyle=tok['--panel'];tx.lineWidth=cw;tx.beginPath();segs.forEach(([a,b])=>{tx.moveTo(a[0],a[1]);tx.lineTo(b[0],b[1]);});tx.stroke();
+  // labels
+  tx.font=`600 ${Math.round(12*k)}px "Zen Kaku Gothic New",sans-serif`;tx.textAlign='center';tx.textBaseline='middle';
+  tx.fillStyle=tok['--muted'];
+  tx.textAlign=tr.forced>0?'right':'left';tx.fillText('強制転向',j1[0]-tr.forced*cw*.9,j1[1]);tx.textAlign=tr.forced>0?'left':'right';
+  tx.fillText('選択点',jT[0]+tr.forced*cw*.9,jT[1]);tx.textAlign='center';
+  const upIsAlt = tr.forced===1; // heading right: left turn = up
+  tx.fillStyle=tok['--a'];tx.fillText('交替',jT[0],H*0.5-H*0.36-cw*0.55-4);
+  tx.fillStyle=tok['--muted'];tx.fillText('同じ向き',jT[0],H*0.5+H*0.36+cw*0.55+4);
+  // flip labels if needed
+  if(!upIsAlt){tx.fillStyle=tok['--floor'];tx.fillRect(jT[0]-50*k,H*0.5-H*0.36-cw*0.55-4-11*k,100*k,22*k);tx.fillRect(jT[0]-50*k,H*0.5+H*0.36+cw*0.55+4-11*k,100*k,22*k);
+    tx.fillStyle=tok['--muted'];tx.fillText('同じ向き',jT[0],H*0.5-H*0.36-cw*0.55-4);
+    tx.fillStyle=tok['--a'];tx.fillText('交替',jT[0],H*0.5+H*0.36+cw*0.55+4);}
+  tx.fillStyle=tok['--muted'];tx.fillText(`距離 ${P.dist} マス`,(j1[0]+jT[0])/2,j1[1]-cw*.9);
+  // rover along path
+  if(tm.trial){
+    const p=along(pts,Math.min(tr.t,1));
+    // trail
+    tx.strokeStyle=tr.alt?tok['--a']:tok['--muted'];tx.globalAlpha=.6;tx.lineWidth=3*k;tx.lineCap='round';tx.beginPath();
+    tx.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<=p.i;i++)tx.lineTo(pts[i][0],pts[i][1]);tx.lineTo(p.x,p.y);tx.stroke();tx.globalAlpha=1;
+    const fake={kind:'a',last:p.i>=2?tr.forced:0};
+    tx.save();tx.translate(p.x,p.y);tx.rotate(p.a+Math.PI/2);
+    const s=cw*.95,w=s*.62,h=s*.74;tx.fillStyle=tok['--ink'];
+    [[-w/2-s*.06,-h*.28],[w/2-s*.06,-h*.28],[-w/2-s*.06,h*.12],[w/2-s*.06,h*.12]].forEach(([x,y])=>{tx.beginPath();roundRect(tx,x,y,s*.12,h*.3,s*.04);tx.fill();});
+    tx.fillStyle=tok['--a'];tx.beginPath();roundRect(tx,-w/2,-h/2,w,h,s*.16);tx.fill();
+    tx.fillStyle=tok['--panel'];tx.beginPath();tx.arc(0,-h*.24,s*.1,0,Math.PI*2);tx.fill();
+    if(fake.last){tx.beginPath();tx.arc(fake.last*w*.24,h*.18,s*.07,0,Math.PI*2);tx.fill();}
+    tx.restore();
+  }
+}
+function along(pts,t){
+  const L=[];let tot=0;for(let i=1;i<pts.length;i++){const d=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);L.push(d);tot+=d;}
+  let d=t*tot;for(let i=0;i<L.length;i++){if(d<=L[i]||i===L.length-1){const k=L[i]?Math.min(d/L[i],1):1;const a=pts[i],b=pts[i+1];
+    return{x:a[0]+(b[0]-a[0])*k,y:a[1]+(b[1]-a[1])*k,a:Math.atan2(b[1]-a[1],b[0]-a[0]),i};}d-=L[i];}
+}
+function record(tr){tr.alt?tm.alt++:tm.same++;updateTmUI();}
+function updateTmUI(){
+  const n=tm.alt+tm.same;
+  $('tmAlt').textContent=tm.alt;$('tmSame').textContent=tm.same;
+  $('tmRate').textContent=n?(tm.alt/n*100).toFixed(1)+'%':'–';
+  $('tmAltBar').style.width=n?(tm.alt/n*100)+'%':'0';$('tmSameBar').style.width=n?(tm.same/n*100)+'%':'0';
+}
+function updateExpect(){
+  const e=$('tmExpect');if(!e)return;
+  e.textContent=`いまの設定での理論値：交替率 ${(pEff(P.alt,P.dist)*100).toFixed(1)}%（試行を重ねるとこの値に近づきます）`;
+}
+
+/* ---------- controls ---------- */
+bindSlider('pAlt',v=>v+'%',v=>P.alt=v/100);
+bindSlider('lam',v=>v+' マス',v=>P.lam=v);
+bindSlider('spd',v=>v+' マス/秒',v=>P.spd=v);
+bindSlider('dist',v=>v+' マス',v=>P.dist=v);
+function syncPlay(){$('play').textContent=playing?'一時停止':'再生';$('tmRun').textContent=tm.running?'一時停止':'再生';}
+$('play').onclick=()=>{playing=!playing;syncPlay();};
+$('newmap').onclick=()=>{resetField();updateFieldUI();};
+$('clear').onclick=()=>{stats={runs:0,a:[],b:[]};updateStatsUI();};
+$('tmRun').onclick=()=>{tm.running=!tm.running;syncPlay();};
+$('tm100').onclick=()=>{for(let i=0;i<100;i++)record(newTrial());};
+$('tmReset').onclick=()=>{tm.alt=tm.same=0;updateTmUI();};
+syncPlay();
+
+/* ---------- canvas sizing ---------- */
+function fit(){
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  [[fc,COLS/(ROWS+2)],[tc,560/380]].forEach(([c,ar])=>{
+    const w=c.parentElement.clientWidth-24;const h=w/ar;
+    c.width=Math.round(w*dpr);c.height=Math.round(h*dpr);c.style.height=h+'px';
+  });
+}
+window.addEventListener('resize',fit);
+
+/* ---------- loop ---------- */
+resetField();fit();updateFieldUI();updateStatsUI();updateTmUI();
+let lastT=performance.now();
+function frame(now){
+  const dt=Math.min((now-lastT)/1000,.1);lastT=now;
+  if(playing){
+    if(rovers.every(v=>v.done)){
+      pauseT+=dt;
+      if(pauseT>1.4){stats.runs++;stats.a.push(Math.min(rovers[0].steps,MAXSTEPS));stats.b.push(Math.min(rovers[1].steps,MAXSTEPS));updateStatsUI();resetField();}
+    }else{
+      rovers.forEach(v=>{if(v.done){v.t=Math.min(1,v.t+dt*P.spd);return;}
+        v.t+=dt*P.spd;let guard=0;while(v.t>=1&&!v.done&&guard++<40){const carry=v.t-1;stepRover(v);v.t=carry;}
+      });
+    }
+    updateFieldUI();
+  }
+  if(tm.running){
+    if(!tm.trial){tm.trial=newTrial();}
+    else if(tm.trial.t<1){tm.trial.t+=dt*0.55;if(tm.trial.t>=1){tm.trial.t=1;record(tm.trial);tm.wait=0;}}
+    else{tm.wait+=dt;if(tm.wait>.7)tm.trial=newTrial();}
+  }
+  drawField();drawTmaze();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
